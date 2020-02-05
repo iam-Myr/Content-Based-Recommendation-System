@@ -1,8 +1,9 @@
-import csv
+import pandas as pd
 
-results = []
-with open("data/BX-Book-Ratings.csv") as csvfile:
-    reader = csv.reader(csvfile)
-    for row in reader: # each row is a list
-        results.append(row)
-        print(row)
+df = pd.read_csv("data/BX-Book-Ratings.csv", sep=";", encoding = "ISO-8859-1")
+
+filterBooks = df[(df.groupby('User-ID')['Book-Rating'].transform('count') >= 5)]
+filterUsers = df[(df.groupby('ISBN')['Book-Rating'].transform('count') >= 10)]
+
+filtered3 = filterBooks.merge(filterUsers)
+print (filtered3)
