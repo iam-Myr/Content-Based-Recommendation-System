@@ -77,7 +77,8 @@ def makeUserProfile(userid):
     userProfile.append(keywordsUnion)
     userProfile.append(authors)
     userProfile.append(years)
-    return userProfile
+    profile = pd.DataFrame([userProfile], columns = ['User-ID', 'KeyWords', 'Authors', 'Years'])
+    return profile
 
 user = users["User-ID"].sample().values[0] #Select a random user
 userProfile = makeUserProfile(user)
