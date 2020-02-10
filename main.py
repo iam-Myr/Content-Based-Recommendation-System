@@ -75,7 +75,7 @@ def findSimilarBooks(userProfiles, books):
 
     for ind in books.index:
         pass
-        # dice = DiceCoefficient(userProfile.getKeyWords(), books["KeyWords"][ind])
+        dice = DiceCoefficient(userProfile.getKeyWords(), books["KeyWords"][ind])
         jaccard = JaccardIndex(userProfiles["KeyWords"][0], books["KeyWords"][ind])
 
         authors = 0;  # FIND MATCHING AUTHOR
