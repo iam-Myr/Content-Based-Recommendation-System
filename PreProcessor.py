@@ -8,9 +8,8 @@ import re
 
 pass
 class PreProcessor:
-    pass
 
-    def filterByConditions(df, cond1, cond2):
+    def filterData(df, cond1, cond2):
         filter1 = df[cond1]
         filter2 = df[cond2]
 
@@ -23,19 +22,62 @@ class PreProcessor:
         return df1
 
     def findKeyWords(text):
-        text = text.translate(str.maketrans('', '', string.punctuation))  # Remove Punctuation
-        text = re.sub(r'\d+', '', text)  #Remove Numbers
+        pass
 
-        stopWords = set(stopwords.words('english'))
-        lemmatizer = WordNetLemmatizer()
-        stemmer = PorterStemmer()
 
-        tokens = word_tokenize(text)  #Tokenize
+    def removePunctuation(self, text):
+        return text.translate(str.maketrans('', '', string.punctuation))
+
+    def removeNumbers(self, text):
+        return re.sub(r'\d+', '', text)
+
+    def tokenize(self, text):
+        return word_tokenize(text)
+
+    def lemmatize(self, tokens):
         wordsFiltered = []
         for w in tokens:
-            if w not in stopWords:
-                w = w.lower()  # Lowercase
-                w = lemmatizer.lemmatize(w)  # Lemmatization
-                w = stemmer.stem(w)  # Stemming
-                wordsFiltered.append(w)  # Filter Stopwords
+            wordsFiltered.append(WordNetLemmatizer().lemmatize(w))
         return wordsFiltered
+
+    def stem(self, tokens):
+        wordsFiltered = []
+        for w in tokens:
+            wordsFiltered.append(PorterStemmer().stem(w))
+        return wordsFiltered
+
+    def stopWords(self, tokens):
+        wordsFiltered = []
+        stopWords = set(stopwords.words('english'))
+        for w in tokens:
+            if w not in stopWords:
+                wordsFiltered.append(w)
+        return wordsFiltered
+
+    def makeLowercase(self, text):
+            return  text.lower()
+
+    def removeDouble(self, text):
+        return re.sub(r'\b\w{1,3}\b', '', text)
+
+    def preprocess(self, text, instructions): #Instructions is a list
+        for instruction in instructions:
+            if instruction == "REMOVE_NUMB":
+                text = self.removeNumbers(text)
+            elif instruction == "REMOVE_PUN":
+                text = self.removePunctuation(text)
+            elif instruction == "REMOVE_DOUBLE":
+                text = self.removeDouble(text)
+            elif instruction == "LOWER":
+                text = self.makeLowercase(text)
+            elif instruction == "TOKENIZE":
+                tokens = self.tokenize(text)
+            elif instruction == "REMOVE_STOPWORDS":
+                tokens = self.stopWords(tokens)
+            elif instruction == "LEMMATIZE":
+                tokens = self.lemmatize(tokens)
+            elif instruction == "STEM":
+                tokens = self.stem(tokens)
+
+
+        return tokens
