@@ -6,24 +6,7 @@ from nltk.stem import PorterStemmer
 import string
 import re
 
-pass
 class PreProcessor:
-
-    def filterData(df, cond1, cond2):
-        filter1 = df[cond1]
-        filter2 = df[cond2]
-
-        return pd.merge(filter1, filter2)
-
-    def synchronize(df1,df2,column):
-        cond = ~df1[column].isin(df2[column]) == True
-        df1.drop(df1[cond].index, inplace=True)
-        df1.reset_index(drop=True, inplace=True)
-        return df1
-
-    def findKeyWords(text):
-        pass
-
 
     def removePunctuation(self, text):
         return text.translate(str.maketrans('', '', string.punctuation))
@@ -78,6 +61,5 @@ class PreProcessor:
                 tokens = self.lemmatize(tokens)
             elif instruction == "STEM":
                 tokens = self.stem(tokens)
-
 
         return tokens
