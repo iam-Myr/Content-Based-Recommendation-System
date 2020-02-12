@@ -1,12 +1,11 @@
-import pandas as pd
-from PreProcessor import PreProcessor
-
 #A Content Based Recommendation System
 #Using data from Book Crossing
 #http://www2.informatik.unifreiburg.de/~cziegler/BX/)
 #Author: Myriam Kapon
 #Date: 12/2/2020
 
+import pandas as pd
+from PreProcessor import PreProcessor
 
 def main():
     books = pd.read_csv("data/BX-Books.csv", encoding="latin-1", sep=";", escapechar='\\')
