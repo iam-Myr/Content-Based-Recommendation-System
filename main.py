@@ -188,7 +188,7 @@ def goldenSimilar(df1, df2):
     golden.sort_values(['Count', "Similarity"], ascending=False, inplace=True)
     golden.drop('Count', 1, inplace=True)
 
-    return golden
+    return golden.head(10)
 
 if __name__ == "__main__":
     main()
