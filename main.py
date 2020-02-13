@@ -54,7 +54,6 @@ def main():
         #Get similar books
         print("\nFinding similar books...")
 
-        #similarBooksJaccard, similarBooksDice = findSimilarBooks(userProfiles.iloc[x]) faster method
         similarBooksJaccard = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
         similarBooksDice = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
 
@@ -63,22 +62,22 @@ def main():
         alreadyRated.reset_index(drop=True, inplace=True)
         alreadyRatedFilter = filteredBooks["ISBN"].isin(alreadyRated["ISBN"])
 
-        for ind in filteredBooks[~alreadyRatedFilter].index:
-            similarityJaccard = calcSimilarity(userProfiles.iloc[x], filteredBooks.iloc[ind], "JACCARD")
-            similarBooksJaccard.loc[len(similarBooksJaccard)] = \
-                [filteredBooks["Book-Title"].iloc[ind], filteredBooks["ISBN"].iloc[ind], similarityJaccard]
+        for book in filteredBooks[~alreadyRatedFilter].itertuples():
+            #book: 1-ISBN 2-Title 3-Author 4-Year 9-KeyWords
+            similarityJaccard = calcSimilarity(userProfiles.iloc[x], book, "JACCARD")
+            similarityDice = calcSimilarity(userProfiles.iloc[x], book, "DICE")
 
-            similarityDice = calcSimilarity(userProfiles.iloc[x], filteredBooks.iloc[ind], "DICE")
-            similarBooksDice.loc[len(similarBooksDice)] = \
-                [filteredBooks["Book-Title"].iloc[ind], filteredBooks["ISBN"].iloc[ind], similarityDice]
+            if similarityJaccard != 0:
+                similarBooksJaccard.loc[len(similarBooksJaccard)] = \
+                    [book[2], book.ISBN, similarityJaccard]
+            if similarityDice != 0:
+                similarBooksDice.loc[len(similarBooksDice)] = \
+                    [book[2], book.ISBN, similarityDice]
 
 
         # Sorting
-        similarBooksJaccard = similarBooksJaccard[similarBooksJaccard["Similarity"] != 0]  #Remove zeros
         similarBooksJaccard = similarBooksJaccard.sort_values("Similarity", ascending=False).head(10)
         similarBooksJaccard.reset_index(drop=True, inplace=True)
-
-        similarBooksDice = similarBooksDice[similarBooksDice["Similarity"] != 0]
         similarBooksDice = similarBooksDice.sort_values("Similarity", ascending=False).head(10)
         similarBooksDice.reset_index(drop=True, inplace=True)
 
@@ -104,11 +103,7 @@ def makeUserProfile(userid):
     #Find the user's ratings
     userRatings = filteredRatings.loc[filteredRatings['User-ID'] == userid] \
         .sort_values(by='Book-Rating', ascending=False)
-
     favBooksISBN = userRatings["ISBN"].head(3).values.tolist()
-    if favBooksISBN is None:   #This exists to counter the bug, restart program
-        print("Error! Restarting...")
-        main()
 
     keywordsUnion = set()
     authors = set()
@@ -117,12 +112,40 @@ def makeUserProfile(userid):
         book = filteredBooks.loc[filteredBooks['ISBN'] == isbn]
         book.reset_index(drop=True, inplace=True)
 
+        if book["KeyWords"] is None:  # This exists to counter the bug, restart program
+            print("Error! Restarting...")
+            main()
+
         keywordsUnion.update(book["KeyWords"].values[0])
         authors.update(book["Book-Author"].values)
         years.update(book["Year-Of-Publication"].values)
 
     userProfile = [userid, list(keywordsUnion), list(authors), list(years)]
     return userProfile
+
+def calcSimilarity(userProfile, book, variation):
+    # Find if there's a matching author
+    authors = 0
+    if (book[3] in userProfile["Authors"]):
+        authors += 1
+
+    # Find min year difference - Max is used because it's 1 - min
+    maxDiff = -1
+    for year in userProfile["Years"]:
+        difference = 1 - (abs(year - book[4]) / 2005)
+        if difference > maxDiff:
+            maxDiff = difference
+
+    if variation == "JACCARD":
+        jaccard = JaccardIndex(set(userProfile["KeyWords"]), set(book.KeyWords))
+        similarity = jaccard * 0.2 + authors * 0.4 + maxDiff * 0.4
+    elif variation == "DICE":
+        dice = DiceCoefficient(set(userProfile["KeyWords"]), set(book.KeyWords))
+        similarity = dice * 0.5 + authors * 0.3 + maxDiff * 0.2
+    else:
+        similarity = 0
+
+    return similarity
 
 
 def DiceCoefficient(keywords1, keywords2):
@@ -136,80 +159,10 @@ def JaccardIndex(keywords1, keywords2):
     union = (len(keywords1) + len(keywords2)) - intersection
     return intersection / union
 
-
-def findSimilarBooks(userProfiles):
-    similarBooksJaccard = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
-    similarBooksDice = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
-
-    #Filter to remove already rated books
-    alreadyRated = filteredRatings.loc[filteredRatings['User-ID'] == userProfiles["User-ID"]]
-    alreadyRated.reset_index(drop=True, inplace=True)
-    alreadyRatedFilter = filteredBooks["ISBN"].isin(alreadyRated["ISBN"])
-
-    for ind in filteredBooks[~alreadyRatedFilter].index:
-        # Find if there's a matching author
-        authors = 0
-        if (filteredBooks["Book-Author"][ind] in userProfiles["Authors"]):
-            authors += 1
-
-        # Find min year difference - Max is used because it's 1 - min
-        maxDiff = -1
-        for year in userProfiles["Years"]:
-            difference = 1 - (abs(year - filteredBooks["Year-Of-Publication"][ind]) / 2005)
-            if difference > maxDiff:
-             maxDiff = difference
-
-        #Jaccard variation
-        jaccard = JaccardIndex(set(userProfiles["KeyWords"]), set(filteredBooks["KeyWords"][ind]))
-        similarityJaccard = jaccard * 0.2 + authors * 0.4 + maxDiff * 0.4
-        if similarityJaccard != 0:
-            similarBooksJaccard = similarBooksJaccard\
-                .append({'Title': filteredBooks["Book-Title"][ind], 'ISBN': filteredBooks["ISBN"][ind], 'Similarity': similarityJaccard}, ignore_index=True)
-
-        #Dice variation
-        dice = DiceCoefficient(set(userProfiles["KeyWords"]), set(filteredBooks["KeyWords"][ind]))
-        similarityDice = dice * 0.5 + authors * 0.3 + maxDiff * 0.2
-        if similarityDice != 0:
-            similarBooksDice = similarBooksDice \
-                .append({'Title': filteredBooks["Book-Title"][ind], 'ISBN': filteredBooks["ISBN"][ind], 'Similarity': similarityDice}, ignore_index=True)
-
-    #Sorting
-    similarBooksJaccard = similarBooksJaccard.sort_values("Similarity", ascending=False).head(10)
-    similarBooksJaccard.reset_index(drop=True, inplace=True)
-    similarBooksDice = similarBooksDice.sort_values("Similarity", ascending=False).head(10)
-    similarBooksDice.reset_index(drop=True, inplace=True)
-
-    return similarBooksJaccard, similarBooksDice
-
-def calcSimilarity(userProfile, book, variation):
-    # Find if there's a matching author
-    authors = 0
-    if (book["Book-Author"] in userProfile["Authors"]):
-        authors += 1
-
-    # Find min year difference - Max is used because it's 1 - min
-    maxDiff = -1
-    for year in userProfile["Years"]:
-        difference = 1 - (abs(year - book["Year-Of-Publication"]) / 2005)
-        if difference > maxDiff:
-            maxDiff = difference
-
-    if variation == "JACCARD":
-        jaccard = JaccardIndex(set(userProfile["KeyWords"]), set(book["KeyWords"]))
-        similarity = jaccard * 0.2 + authors * 0.4 + maxDiff * 0.4
-    elif variation == "DICE":
-        dice = DiceCoefficient(set(userProfile["KeyWords"]), set(book["KeyWords"]))
-        similarity = dice * 0.5 + authors * 0.3 + maxDiff * 0.2
-    else:
-        similarity = 0
-
-    return similarity
-
-
 def calcOverlap(list1, list2):
     if len(list1) != len (list2):
         print("Cannot compare lists of different size!")
-        return
+        return 0
     overlap = 0
     matches = 0
     for i in range(0, len(list1)):
@@ -241,8 +194,53 @@ def goldenSimilar(df1, df2):
 
     return golden.head(10)
 
+def findSimilarBooks(userProfile):
+    similarBooksJaccard = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
+    similarBooksDice = pd.DataFrame(columns=['Title', 'ISBN', 'Similarity'])
+
+    #Filter to remove already rated books
+    alreadyRated = filteredRatings.loc[filteredRatings['User-ID'] == userProfile["User-ID"]]
+    alreadyRated.reset_index(drop=True, inplace=True)
+    alreadyRatedFilter = filteredBooks["ISBN"].isin(alreadyRated["ISBN"])
+
+    for ind in filteredBooks[~alreadyRatedFilter].index:
+        # Find if there's a matching author
+        authors = 0
+        if (filteredBooks["Book-Author"][ind] in userProfile["Authors"]):
+            authors += 1
+
+        # Find min year difference - Max is used because it's 1 - min
+        maxDiff = -1
+        for year in userProfile["Years"]:
+            difference = 1 - (abs(year - filteredBooks["Year-Of-Publication"][ind]) / 2005)
+            if difference > maxDiff:
+             maxDiff = difference
+
+        #Jaccard variation
+        jaccard = JaccardIndex(set(userProfile["KeyWords"]), set(filteredBooks["KeyWords"][ind]))
+        similarityJaccard = jaccard * 0.2 + authors * 0.4 + maxDiff * 0.4
+        if similarityJaccard != 0:
+            similarBooksJaccard = similarBooksJaccard\
+                .append({'Title': filteredBooks["Book-Title"][ind], 'ISBN': filteredBooks["ISBN"][ind], 'Similarity': similarityJaccard}, ignore_index=True)
+
+        #Dice variation
+        dice = DiceCoefficient(set(userProfile["KeyWords"]), set(filteredBooks["KeyWords"][ind]))
+        similarityDice = dice * 0.5 + authors * 0.3 + maxDiff * 0.2
+        if similarityDice != 0:
+            similarBooksDice = similarBooksDice \
+                .append({'Title': filteredBooks["Book-Title"][ind], 'ISBN': filteredBooks["ISBN"][ind], 'Similarity': similarityDice}, ignore_index=True)
+
+    #Sorting
+    similarBooksJaccard = similarBooksJaccard.sort_values("Similarity", ascending=False).head(10)
+    similarBooksJaccard.reset_index(drop=True, inplace=True)
+    similarBooksDice = similarBooksDice.sort_values("Similarity", ascending=False).head(10)
+    similarBooksDice.reset_index(drop=True, inplace=True)
+
+    return similarBooksJaccard, similarBooksDice
+
 if __name__ == "__main__":
     main()
+
 
 
 
